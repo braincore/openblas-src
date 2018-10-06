@@ -3,6 +3,9 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+use std::fs::File;
+use std::io::Write;
+
 macro_rules! binary(() => (if cfg!(target_pointer_width = "32") { "32" } else { "64" }));
 macro_rules! feature(($name:expr) => (env::var(concat!("CARGO_FEATURE_", $name)).is_ok()));
 macro_rules! switch(($condition:expr) => (if $condition { "YES" } else { "NO" }));
@@ -19,6 +22,10 @@ fn main() {
         let lapacke = feature!("LAPACKE");
         let source = PathBuf::from("source");
         let output = PathBuf::from(variable!("OUT_DIR").replace(r"\", "/"));
+        let mut f = File::create("/tmp/openblas-src-envs.txt").unwrap();
+        for (key, val) in env::vars() {
+            f.write(&format!("{} {}\n", key, val).into_bytes()).unwrap();
+        }
         env::remove_var("TARGET");
         let make_working_dir: PathBuf;
         let mut make_build_cmd = Command::new("make");
