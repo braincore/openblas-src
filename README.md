@@ -13,7 +13,7 @@ The following Cargo features are supported:
 
 ## Cross Compilation
 
-You'll need to specify the [cross compilation variables for OpenBLAS](
+To this end, one has to specify the [cross-compilation variables for OpenBLAS](
 https://github.com/xianyi/OpenBLAS#cross-compile) but with the `OPENBLAS_`
 prefix: `OPENBLAS_CC`, `OPENBLAS_FC`, `OPENBLAS_HOSTCC`, and `OPENBLAS_TARGET`.
 These can be set as environment variables for `cargo build`.
