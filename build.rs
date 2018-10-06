@@ -20,65 +20,57 @@ fn main() {
     if !feature!("SYSTEM") {
         let cblas = feature!("CBLAS");
         let lapacke = feature!("LAPACKE");
-        let source = PathBuf::from("source");
         let output = PathBuf::from(variable!("OUT_DIR").replace(r"\", "/"));
         let mut f = File::create("/tmp/openblas-src-envs.txt").unwrap();
         for (key, val) in env::vars() {
             f.write(&format!("{} {}\n", key, val).into_bytes()).unwrap();
         }
-        env::remove_var("TARGET");
-        let make_working_dir: PathBuf;
-        let mut make_build_cmd = Command::new("make");
-        make_build_cmd
-            .args(&["libs", "netlib", "shared"])
+        let mut make = Command::new("make");
+        make.args(&["libs", "netlib", "shared"])
             .arg(format!("BINARY={}", binary!()))
             .arg(format!("{}_CBLAS=1", switch!(cblas)))
             .arg(format!("{}_LAPACKE=1", switch!(lapacke)))
             .arg(format!("-j{}", variable!("NUM_JOBS")));
-        match env::var("OPENBLAS_TARGET") {
-            Ok(target) => {
-                make_build_cmd.arg(format!("TARGET={}", target));
-                let canonical_target = PathBuf::from(&target.to_lowercase());
-                if !canonical_target.exists() {
-                    let canonical_target_tmp =
-                        PathBuf::from(format!("{}_TMP", canonical_target.to_str().unwrap()));
-                    if canonical_target_tmp.exists() {
-                        fs::remove_dir_all(&canonical_target_tmp).unwrap();
-                    }
-                    run(Command::new("cp")
-                        .arg("-R")
-                        .arg("source")
-                        .arg(&canonical_target_tmp));
-                    run(Command::new("make")
-                        .arg("clean")
-                        .current_dir(&canonical_target_tmp));
-                    fs::rename(&canonical_target_tmp, &canonical_target).unwrap();
-                }
-                make_working_dir = canonical_target;
+        let target = match env::var("OPENBLAS_TARGET") {
+            Ok(openblas_target) => {
+                make.arg(format!("TARGET={}", openblas_target));
+                openblas_target
             }
-            _ => {
-                make_working_dir = source.to_path_buf();
+            _ => variable!("TARGET"),
+        }.to_lowercase();
+        env::remove_var("TARGET");
+        let make_working_dir = PathBuf::from(&target.to_lowercase());
+        if !make_working_dir.exists() {
+            let make_working_dir_tmp =
+                PathBuf::from(format!("{}_TMP", make_working_dir.to_str().unwrap()));
+            if make_working_dir_tmp.exists() {
+                fs::remove_dir_all(&make_working_dir_tmp).unwrap();
             }
+            run(Command::new("cp")
+                .arg("-R")
+                .arg("source")
+                .arg(&make_working_dir_tmp));
+            fs::rename(&make_working_dir_tmp, &make_working_dir).unwrap();
         }
         match env::var("OPENBLAS_CC") {
             Ok(value) => {
-                make_build_cmd.arg(format!("CC={}", value));
+                make.arg(format!("CC={}", value));
             }
             _ => {}
         }
         match env::var("OPENBLAS_FC") {
             Ok(value) => {
-                make_build_cmd.arg(format!("FC={}", value));
+                make.arg(format!("FC={}", value));
             }
             _ => {}
         }
         match env::var("OPENBLAS_HOSTCC") {
             Ok(value) => {
-                make_build_cmd.arg(format!("HOSTCC={}", value));
+                make.arg(format!("HOSTCC={}", value));
             }
             _ => {}
         }
-        run(&mut make_build_cmd.current_dir(&make_working_dir));
+        run(&mut make.current_dir(&make_working_dir));
         run(Command::new("make")
             .arg("install")
             .arg(format!("DESTDIR={}", output.display()))
